@@ -39,7 +39,7 @@ int main (){
         cout << "1. Book for tickets\n";
         cout << "2. Booking History\n";
         cout << "3. Exit \n";
-        cout << "Choose for menu : ";
+        cout << "Choose for menu : (1/2/3)";
         cin >> choice;
         
         switch (choice)
