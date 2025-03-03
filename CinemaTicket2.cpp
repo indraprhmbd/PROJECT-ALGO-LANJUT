@@ -8,6 +8,8 @@ struct Movie{
     int duration;
 }; Movie movie[10];
 
+int moviesC;
+
 
 bool login(){
     string user,pass;
@@ -25,7 +27,9 @@ bool login(){
 }
 
 void InputMovie(){
-    for(int i=0;i<10;i++){
+    int inputmovieC;
+    cout << "How many movies you want to input = "; cin >> inputmovieC;
+    for(int i = moviesC;  i < inputmovieC + moviesC ; i++){
         cout << "Title = "; 
         cin  >> movie[i].title;
         cout << "Producer = ";
@@ -52,4 +56,16 @@ int main(){
         cout<<"Do you want to exit ? (y/n)";cin>>ulang;
         
     }while(ulang!='y');
+
+    int inputmovieC;
+    cout << "How many movies you want to input = "; cin >> inputmovieC;
+    for(int i = moviesC;  i < inputmovieC + moviesC ; i++){
+        cout << "Title = "; 
+        cin  >> movie[i].title;
+        cout << "Producer = ";
+        cin  >> movie[i].producer;
+        cout << "release date = ";
+        cin  >> movie[i].release_d;
+        cout << "Duration = ";
+        cin  >> movie[i].duration;
 }
