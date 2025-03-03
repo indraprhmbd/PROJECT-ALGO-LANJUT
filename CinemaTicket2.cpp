@@ -4,11 +4,11 @@ using namespace std;
 struct Movie{
     string title;
     string producer;
-    int release_d;
-    int duration;
+    string release_d;
+    string duration;
 }; Movie movie[10];
 
-int moviesC;
+int moviesC =  0;
 
 
 bool login(){
@@ -39,33 +39,26 @@ void InputMovie(){
         cout << "Duration = ";
         cin  >> movie[i].duration;
     }
+    int moviesC =+ inputmovieC;
 }
 
 int main(){
-    char ulang='t';
-    do{ 
-        if(login()){
-            char menu;
-            cout<<"login berhasil!"<<endl;
-            system("pause");
-            // return 0;
-        }else {
-            cout<<"Login Failed! Please try again."<<endl;
-            system("pause");
-        }
-        cout<<"Do you want to exit ? (y/n)";cin>>ulang;
+    // char ulang='t';
+    // do{ 
+    //     if(login()){
+    //         char menu;
+    //         cout<<"login berhasil!"<<endl;
+    //         system("pause");
+    //         // return 0;
+    //     }else {
+    //         cout<<"Login Failed! Please try again."<<endl;
+    //         system("pause");
+    //     }
+    //     cout<<"Do you want to exit ? (y/n)";cin>>ulang;
         
-    }while(ulang!='y');
+    // }while(ulang!='y');
 
-    int inputmovieC;
-    cout << "How many movies you want to input = "; cin >> inputmovieC;
-    for(int i = moviesC;  i < inputmovieC + moviesC ; i++){
-        cout << "Title = "; 
-        cin  >> movie[i].title;
-        cout << "Producer = ";
-        cin  >> movie[i].producer;
-        cout << "release date = ";
-        cin  >> movie[i].release_d;
-        cout << "Duration = ";
-        cin  >> movie[i].duration;
+    InputMovie();
+
+    
 }
