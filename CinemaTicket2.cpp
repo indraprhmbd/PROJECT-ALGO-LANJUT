@@ -50,6 +50,7 @@ void InputMovie(){
     cout << "How many movies you want to input = "; cin >> inputmovieC;
     for(int i = moviesC;  i < inputmovieC + moviesC ; i++){
         cout << "Title = "; 
+        cin.ignore();
         getline(cin,movie[i].title);
         cout << "Producer = ";
         getline(cin,movie[i].producer);
@@ -61,21 +62,24 @@ void InputMovie(){
     int moviesC =+ inputmovieC;
 }
 
+void inputschedule(){
 int main(){
-    char ulang='t';
-    do{ 
-        if(login(admin)){
-            char menu;
-            cout<<"login berhasil!"<<endl;
-            system("pause");
-            // return 0;
-        }else {
-            cout<<"Login Failed! Please try again."<<endl;
-            system("pause");
-        }
-        cout<<"Do you want to exit ? (y/n)";cin>>ulang;
+    // char ulang;
+    // do{ 
+    //     ulang='n';
+    //     bool admin=false;
+    //     if(login(admin)){
+    //         char menu;
+    //         cout<<"login berhasil!"<<endl;
+    //         system("pause");
+    //         // return 0;
+    //     }else {
+    //         cout<<"Login Failed! Please try again."<<endl;
+    //         system("pause");
+    //     }
+    //     cout<<"Do you want to exit ? (y/n)";cin>>ulang;
         
-    }while(ulang!='y');
+    // }while(ulang!='y');
 
     InputMovie();
 
