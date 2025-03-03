@@ -1,6 +1,14 @@
 #include <iostream>
 using namespace std;
 
+struct Movie{
+    string title;
+    string producer;
+    int release_d;
+    int duration;
+}; Movie movie[10];
+
+
 bool login(){
     string user,pass;
     for(int i=3;i>=0;i--){
@@ -14,6 +22,19 @@ bool login(){
         system("pause");
     }
     return false;
+}
+
+void InputMovie(){
+    for(int i=0;i<10;i++){
+        cout << "Title = "; 
+        cin  >> movie[i].title;
+        cout << "Producer = ";
+        cin  >> movie[i].producer;
+        cout << "release date = ";
+        cin  >> movie[i].release_d;
+        cout << "Duration = ";
+        cin  >> movie[i].duration;
+    }
 }
 
 int main(){
