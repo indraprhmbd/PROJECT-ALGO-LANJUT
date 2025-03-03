@@ -4,9 +4,11 @@ using namespace std;
 struct Movie{
     string title;
     string producer;
+    string genre;
     string release_d;
     string duration;
 }; Movie movie[10];
+
 
 int moviesC =  0;
 
@@ -52,6 +54,8 @@ void InputMovie(){
         cout << "Title = "; 
         cin.ignore();
         getline(cin,movie[i].title);
+        cout << "genre =";
+        getline(cin,movie[i].genre);
         cout << "Producer = ";
         getline(cin,movie[i].producer);
         cout << "release date = ";
@@ -63,6 +67,8 @@ void InputMovie(){
 }
 
 void inputschedule(){
+
+}
 int main(){
     // char ulang;
     // do{ 
