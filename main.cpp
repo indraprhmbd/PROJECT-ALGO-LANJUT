@@ -1,14 +1,33 @@
 #include <iostream>
 #include <iomanip>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <algorithm>
+#include <limits>
 using namespace std;
 
+const int MAX_MOVIES = 5;
+const int MAX_CASHIERS = 20;
+const int MAX_TICKETS = 100;
+const int MAX_SESSIONS = 15;
+const int MAX_TEMP_BOOKINGS = 100;
+const int STUDIOS = 3;
+const int SESSIONS_PER_STUDIO = 5;
+const int ROWS = 10;
+const int COLS = 9;
+const int TICKET_PRICE = 25000;
+
 int bookedSeats = 0;
+int cashierCount = 0;
+string history_filename = "history.txt";
+string cashier_filename = "cashier.txt";
 
-string admin[2][1] = {{"admin"}, {"admin123"}};
-string cashierUser[4];
-string cashierPass[4];
+string admin[2] = {"admin", "admin123"};
+string cashierUser[MAX_CASHIERS];
+string cashierPass[MAX_CASHIERS];
 
-struct Movie{
+struct Movie {
     string title;
     string producer;
     string genre;
@@ -16,113 +35,207 @@ struct Movie{
     string duration;
 };
 
-Movie movie[5] = {
+Movie movie[MAX_MOVIES] = {
     {"Spiderman", "Bono", "Action", "20 may 2025", "2h 37m"},
     {"Superman", "Bono", "Action", "20 may 2025", "2h 37m"},
     {"Batman", "Bono", "Action", "20 may 2025", "2h 37m"},
-    {"BonoMan", "Bono", "Action", "20 may 2025", "2h 37m"}
-}; int CountMovie =  4; //buat nyimpen movie(moviecount)
+    {"BonoMan", "Bono", "Action", "20 may 2025", "2h 37m"},
+    {"", "", "", "", ""}
+};
 
-struct Session{
-    bool seat[10][9];
+int CountMovie = 4;
+
+struct Session {
+    bool seat[ROWS][COLS];
     int movie;
     string time;
+    
+    Session() : movie(0), time("") {
+        for(int i = 0; i < ROWS; i++) {
+            for(int j = 0; j < COLS; j++) {
+                seat[i][j] = false;
+            }
+        }
+    }
 };
 
-struct Studio{
-    Session session[5];
-}; 
-
-Studio studio[3] = {
-    {{{{false}, 0, "10:30"}, {{false}, 0, "13:00"}, {{false}, 0, "15:30"}, {{false}, 0, "18:00"}, {{false}, 0, "20:30"}}},
-    {{{{false}, 1, "11:00"}, {{false}, 1, "14:00"}, {{false}, 1, "16:30"}, {{false}, 1, "19:00"}, {{false}, 1, "21:30"}}},
-    {{{{false}, 2, "10:00"}, {{false}, 2, "12:30"}, {{false}, 1, "15:00"}, {{false}, 2, "17:30"}, {{false}, 3, "20:00"}}}
+struct Studio {
+    Session session[SESSIONS_PER_STUDIO];
 };
 
-struct Ticket{
-    int title;
-    int session;
+Studio studio[STUDIOS];
+
+struct Ticket {
+    string title;
+    string session;
     string seat;
-}; Ticket ticket[100];
+    
+    Ticket() : title(""), session(""), seat("") {}
+};
+Ticket ticket[MAX_TICKETS];
 
-// Struktur untuk menyimpan hasil pencarian
 struct SessionInfo {
     int studioIndex;
     int sessionIndex;
-    string time;    
-}; SessionInfo foundSessions[15]; //Array dengan ukuran maksimum (3 studio × 5 sesi = 15)
+    string time;
+    
+    SessionInfo() : studioIndex(-1), sessionIndex(-1), time("") {}
+};
+SessionInfo foundSessions[MAX_SESSIONS];
 
 struct Temporary {
     int tFilm;
     int tStudio;
     int tSesi;
     string tSeat;
-}; Temporary temp[100];
+    
+    Temporary() : tFilm(-1), tStudio(-1), tSesi(-1), tSeat("") {}
+};
+Temporary temp[MAX_TEMP_BOOKINGS];
 
 int TbookedSeat = 0;
 
-void loadCashiersFromFile(const char* filename) {
-    FILE* file = fopen(filename, "r");
-    if (!file) {
-        perror("Error opening file");
+void initializeStudios() {
+    // Studio 1
+    studio[0].session[0].movie = 0; studio[0].session[0].time = "10:30";
+    studio[0].session[1].movie = 0; studio[0].session[1].time = "13:00";
+    studio[0].session[2].movie = 0; studio[0].session[2].time = "15:30";
+    studio[0].session[3].movie = 0; studio[0].session[3].time = "18:00";
+    studio[0].session[4].movie = 0; studio[0].session[4].time = "20:30";
+
+    // Studio 2
+    studio[1].session[0].movie = 1; studio[1].session[0].time = "11:00";
+    studio[1].session[1].movie = 1; studio[1].session[1].time = "14:00";
+    studio[1].session[2].movie = 1; studio[1].session[2].time = "16:30";
+    studio[1].session[3].movie = 1; studio[1].session[3].time = "19:00";
+    studio[1].session[4].movie = 1; studio[1].session[4].time = "21:30";
+
+    // Studio 3
+    studio[2].session[0].movie = 2; studio[2].session[0].time = "10:00";
+    studio[2].session[1].movie = 2; studio[2].session[1].time = "12:30";
+    studio[2].session[2].movie = 1; studio[2].session[2].time = "15:00";
+    studio[2].session[3].movie = 2; studio[2].session[3].time = "17:30";
+    studio[2].session[4].movie = 3; studio[2].session[4].time = "20:00";
+
+    // Initialize all seats to false
+    for(int s = 0; s < STUDIOS; s++) {
+        for(int se = 0; se < SESSIONS_PER_STUDIO; se++) {
+            for(int r = 0; r < ROWS; r++) {
+                for(int c = 0; c < COLS; c++) {
+                    studio[s].session[se].seat[r][c] = false;
+                }
+            }
+        }
+    }
+}
+
+
+void clearInputBuffer() {
+    cin.clear();
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+}
+
+int getValidIntInput(int min, int max, const string& prompt) {
+    int input;
+    while(true) {
+        cout << prompt;
+        if(cin >> input && input >= min && input <= max) {
+            clearInputBuffer();
+            return input;
+        }
+        cout << "Invalid input! Please enter a number between " << min << " and " << max << endl;
+        clearInputBuffer();
+    }
+}
+
+void loadCashiersFromFile() {
+    string filename = cashier_filename;
+    ifstream file(cashier_filename);
+    if (!file.is_open()) {
+        cout << "Warning: Could not open " << filename << ". No cashiers loaded." << endl;
         return;
     }
 
-    char line[100];
-    int i=0;
-    while (fgets(line, sizeof(line), file)) {
-        char user[50], pass[50];
-        if (sscanf(line, "%s %s", user, pass) == 2) {
-            cashierUser[i]=user;
-            cashierPass[i]=pass;
-            i++;
+    string line;
+    cashierCount = 0;
+    
+    while (getline(file, line) && cashierCount < MAX_CASHIERS) {
+        istringstream iss(line);
+        string user, pass;
+        
+        if (iss >> user >> pass) {
+            cashierUser[cashierCount] = user;
+            cashierPass[cashierCount] = pass;
+            cashierCount++;
         }
     }
-    fclose(file);
+    file.close();
 }
 
-void ShowsMovie(){
-    cout<<setw(102)<<setfill('-')<<"-"<<endl;
-    cout<<"|TITTLE            |PRODUCER            |Genre             |RELEASE DATE        |DURATION            |\n";
-    for(int i = 0; i < CountMovie; i++){
-        cout<<setw(102)<<setfill('-')<<"-"<<endl;
-        cout<<setfill(' ');
-        cout<<"|"<<setw(18)<<left<<movie[i].title
-            <<"|"<<setw(20)<<left<<movie[i].producer
-            <<"|"<<setw(18)<<left<<movie[i].genre
-            <<"|"<<setw(20)<<left<<movie[i].release_d
-            <<"|"<<setw(20)<<left<<movie[i].duration
-            <<"|"<<'\n';
+void loadHistoryFromFile() {
+    ifstream read(history_filename);
+    if (!read.is_open()) {
+        cout << "Warning: Could not open " << history_filename << ". No history loaded." << endl;
+        return;
     }
-    cout<<setw(102)<<setfill('-')<<"-"<<endl;
+
+    string line;
+    bookedSeats = 0;
+
+    while (getline(read, line) && bookedSeats < MAX_TICKETS) {
+        istringstream ss(line);
+        string hTitle, hSession, hSeat;
+        
+        if (getline(ss, hTitle, '|') && 
+            getline(ss, hSession, '|') && 
+            getline(ss, hSeat, '|')) {
+            
+            ticket[bookedSeats].title = hTitle;
+            ticket[bookedSeats].session = hSession;
+            ticket[bookedSeats].seat = hSeat;
+            bookedSeats++;
+        }
+    }
+    read.close();
 }
 
-bool ChooseMovie(){
+void ShowsMovie() {
+    cout << setw(102) << setfill('-') << "-" << endl;
+    cout << "|TITLE            |PRODUCER            |GENRE             |RELEASE DATE        |DURATION            |" << endl;
+    
+    for(int i = 0; i < CountMovie; i++) {
+        cout << setw(102) << setfill('-') << "-" << endl;
+        cout << setfill(' ');
+        cout << "|" << setw(18) << left << movie[i].title
+             << "|" << setw(20) << left << movie[i].producer
+             << "|" << setw(18) << left << movie[i].genre
+             << "|" << setw(20) << left << movie[i].release_d
+             << "|" << setw(20) << left << movie[i].duration
+             << "|" << endl;
+    }
+    cout << setw(102) << setfill('-') << "-" << endl;
+}
+
+bool ChooseMovie() {
     int film;
     ShowsMovie();
-    cout << "(0) for cancel\n";
-    cout << "Pilih Movie : ";
-
-    while (!(cin >> film) || film < 1 || film > CountMovie) { 
-        if(film == 0) return false;
-        cout << "Invalid input! Please enter a valid number" << "(1-" << CountMovie << ")" ;
-        cin.clear();
-        cin.ignore();
-    }
-
-    temp[0].tFilm = film-1;
+    cout << "(0) for cancel" << endl;
+    
+    film = getValidIntInput(0, CountMovie, "Pilih Movie : ");
+    
+    if(film == 0) return false;
+    
+    temp[0].tFilm = film - 1;
     return true;
 }
 
-// Fungsi searchSesi tanpa vector
 void ShowSesi() {
     int film = temp[0].tFilm;
+    int foundCount = 0;
 
-    int foundCount = 0; // Penghitung jumlah sesi yang ditemukan
-
-    // Satu kali traversal untuk mencari dan menyimpan
-    for (int i = 0; i < 3; i++) {
-        for (int j = 0; j < 5; j++) {
+    // Search for sessions showing the selected movie
+    for (int i = 0; i < STUDIOS && foundCount < MAX_SESSIONS; i++) {
+        for (int j = 0; j < SESSIONS_PER_STUDIO && foundCount < MAX_SESSIONS; j++) {
             if (studio[i].session[j].movie == film) {
                 foundSessions[foundCount].studioIndex = i;
                 foundSessions[foundCount].sessionIndex = j;
@@ -132,205 +245,279 @@ void ShowSesi() {
         }
     }
 
-    // Tampilkan hasil
     if (foundCount == 0) {
         cout << "Tidak ada sesi yang menayangkan film tersebut." << endl;
-    } else {
-        cout << "Sesi yang menayangkan " << movie[film].title << ":" << endl;
-        for (int i = 0; i < foundCount; i++) {
-            cout << i+1 << ". "<< foundSessions[i].time << endl;
-        }
-        cout << "0. Back\n\n";
+        return;
     }
+    
+    cout << "Sesi yang menayangkan " << movie[film].title << ":" << endl;
+    for (int i = 0; i < foundCount; i++) {
+        cout << i + 1 << ". " << foundSessions[i].time << endl;
+    }
+    cout << "0. Back" << endl << endl;
 }
 
-bool ChooseSession(){
+bool ChooseSession() {
     ShowSesi();
-    int pilih;
     
-    cout << "Pilih sesi film : "; cin >> pilih;
-
+    // Count available sessions first
+    int film = temp[0].tFilm;
+    int foundCount = 0;
+    
+    for (int i = 0; i < STUDIOS; i++) {
+        for (int j = 0; j < SESSIONS_PER_STUDIO; j++) {
+            if (studio[i].session[j].movie == film) {
+                foundCount++;
+            }
+        }
+    }
+    
+    if (foundCount == 0) {
+        cout << "No sessions available for this movie." << endl;
+        return false;
+    }
+    
+    int pilih = getValidIntInput(0, foundCount, "Pilih sesi film : ");
+    
     if(pilih == 0) return false;
-
+    
     temp[0].tSesi = foundSessions[pilih-1].sessionIndex;
     temp[0].tStudio = foundSessions[pilih-1].studioIndex;
     return true;
 }
 
-void displaySeats(){
-    for (int i = 0; i < 10; i++) {
-        for(int j=0;j<9;j++){
-            if(studio[temp[0].tStudio].session[temp[0].tSesi].seat[i][j] == false){
-                cout << "       " << char('A' + i) << j + 1; // Tampilan kursi kosong
-            } else if (studio[temp[0].tStudio].session[temp[0].tSesi].seat[i][j] == true){
-                cout << "       " << "XX"; // Tampilan kursi terisi
+void displaySeats() {
+    cout << "   ";
+    for(int j = 1; j <= COLS; j++) {
+        cout << setw(4) << j;
+    }
+    cout << endl;
+    
+    for (int i = 0; i < ROWS; i++) {
+        cout << char('A' + i) << "  ";
+        for(int j = 0; j < COLS; j++) {
+            bool* seatPtr = &studio[temp[0].tStudio].session[temp[0].tSesi].seat[i][j];
+            if(*seatPtr == false) {
+                cout << setw(4) << "[ ]";
+            } else {
+                cout << setw(4) << "[X]";
             }
         }
-        cout << "\n\n";
+        cout << endl;
     }
-    cout << "0. Back\n\n";
+    cout << endl << "0. Back" << endl << endl;
 }
 
-int seatChecking(string &seat,int mov,int ses){
-    
-    if(seat[0]>90) {
-        seat[0] -= 32;
-    }
-    int rowIndex = seat[0] - 'A';
-    int colIndex = seat[1] - '1';
-    
-    if (seat.length() != 2 ||
-        seat[0] < 'A' || seat[0] > 'J' ||
-        seat[1] < '1' || seat[1] > '9') {
-        cout << "Invalid seat format! Please use format like A1, B2..." << endl;
+int seatChecking(const string& seat, int studioIndex, int sessionIndex) {
+    if (seat.length() != 2 || !isalpha(seat[0]) || !isdigit(seat[1])) {
+        cout << "Invalid seat format! Use format like A1." << endl;
         return -1;
     }
 
-    bool s_check = studio[temp[0].tStudio].session[temp[0].tSesi].seat[rowIndex][colIndex];
+    char rowChar = toupper(seat[0]);
+    int rowIndex = rowChar - 'A';
+    int colIndex = seat[1] - '1';
 
-    if(s_check == false && rowIndex < 10 && colIndex < 9 && seat.length() == 2){
-        cout << "seat " << seat[0] << seat[1] << " booked successfully!" << endl;
-        studio[temp[0].tStudio].session[temp[0].tSesi].seat[rowIndex][colIndex] = true;
-        return 0;
-    } else if(s_check == true) {
-        cout<<"This seat is occupied!"<<endl;
-    } else {
-        cout<<"Invalid seat! please try again"<<endl;
+    if (rowIndex < 0 || rowIndex >= ROWS || colIndex < 0 || colIndex >= COLS) {
+        cout << "Invalid seat! Seat is out of range." << endl;
+        return -1;
     }
 
-    return -1;
-}   
-
-void PrintTicket(){
-
-    int payment;
-    system("cls");
-    cout << "\t\t\t" << right << setfill('=') << setw(38) << " ";
-    cout << endl;
-    cout << left << "\t\t\t|" << setfill(' ') << setw(15) << " " << "ITIX" << right << setfill(' ') << setw(17) << "|";
-    cout << endl;
-    cout << "\t\t\t" << right << setfill('=') << setw(38) << " ";
-    cout << endl;
-    cout << "\t\t\t| "<<"Ticket  : " << left << setfill(' ') << setw(24) << TbookedSeat << "|";
-    cout << endl;
-    cout << "\t\t\t|" << right << setfill(' ') << setw(36) << "|";
-    cout << endl;
-    cout << "\t\t\t| "<<"Total  : Rp " << left << setfill(' ') << setw(22) << 25000*TbookedSeat << "|";
-    cout << endl;
-    cout << "\t\t\t" << right << setfill('=') << setw(38) << " ";
-    cout << endl << endl;
-    do{
-        cout << "Input Payment : Rp ";cin >> payment;
-        if(payment >= TbookedSeat*25000){
-            cout << "Change : Rp " << payment-(TbookedSeat*25000);
-            break;
-        } else cout << "Not enough\n";
-    } while(true);
-
-
-
-    for(int i = 0; i < TbookedSeat; i++){
-        cout << endl;
-        cout << "\t\t\t" << right << setfill('=') << setw(38) << " ";
-        cout << endl;
-        
-        cout << left << "\t\t\t|" << setfill(' ') << setw(15) << " " << "ITIX" << right << setfill(' ') << setw(17) << "|";
-        cout << endl;
-        
-        cout << "\t\t\t" << right << setfill('=') << setw(38) << " ";
-        cout << endl;
-        
-        cout << "\t\t\t|" << right << setfill(' ') << setw(36) << "|";
-        cout << endl;
-        
-        cout << "\t\t\t| " << left << setfill(' ') << setw(34) <<  movie[temp[0].tFilm].title << "|";
-        cout << endl;
-        
-        cout << "\t\t\t|" << right << setfill(' ') << setw(36) << "|";
-        cout << endl;
-        
-        cout << "\t\t\t| "<< "Time\t  : " << left << setfill(' ') << setw(24) << studio[temp[0].tStudio].session[temp[0].tSesi].time << "|";
-        cout << endl;
-        
-        cout << "\t\t\t| "<< "Studio  : " << left << setfill(' ') << setw(24) << temp[0].tStudio + 1 << "|";
-        cout << endl;
-        
-        cout << "\t\t\t|" << right << setfill(' ') << setw(36) << "|";
-        cout << endl;
-        
-        cout << "\t\t\t| "<< "Seat\t  : " <<  temp[i].tSeat[0] << "    -    Row  : " << temp[i].tSeat[1] << left << setfill(' ') << setw(6) << " " << "|";
-        cout << endl;
-        
-        cout << "\t\t\t| " << left << setfill(' ') << setw(34) << "Rp 25.000" << "|";
-        cout << endl;
-        
-        cout << "\t\t\t" << right << setfill('=') << setw(38) << " ";
+    bool* seatPtr = &studio[studioIndex].session[sessionIndex].seat[rowIndex][colIndex];
+    if (*seatPtr) {
+        cout << "This seat is already occupied!" << endl;
+        return -1;
     }
 
-    for(int i=bookedSeats;i<bookedSeats+TbookedSeat;i++){
-        ticket[i].title = temp[i].tFilm;
-        ticket[i].session = temp[i].tSesi;
-        ticket[i].seat = temp[i].tSeat;
-    }
-    bookedSeats+=TbookedSeat;
-    TbookedSeat = 0;
+    return 0; // Valid seat, don't mark it yet
 }
 
-bool ChooseSeats(){
-    int qty;
-    string seat;
-    cout<<"Booking Ticket"<<endl;
+void ticketToFile(const string& title, const string& session, const string& seat) {
+    ofstream output(history_filename, ios::app);
+    if(!output.is_open()) {
+        cout << "Error: Failed to save ticket to " << history_filename << endl;    
+        return;
+    }
+    output << title << "|" << session << "|" << seat << endl;
+    output.close();
+}
 
+void PrintTicket() {
+    int payment;
+    int total = TbookedSeat * TICKET_PRICE;
+
+    system("cls");
+
+    int width = 38;
+    string separator = string(width, '=');
+    string title = "ITIX";
+
+    int leftPadding = (width - 2 - title.length()) / 2;
+    int rightPadding = (width - 2) - title.length() - leftPadding;
+
+    cout << "\t\t\t" << separator << endl;
+    cout << "\t\t\t|"
+         << string(leftPadding, ' ') << title << string(rightPadding, ' ')
+         << "|" << endl;
+    cout << "\t\t\t" << separator << endl;
+    cout << "\t\t\t| Ticket  : "
+         << left << setw(width - 12) << setfill(' ') << TbookedSeat << "|" << endl;
+    cout << "\t\t\t| Total   : Rp "
+         << left << setw(width - 15) << setfill(' ') << total << "|" << endl;
+    cout << "\t\t\t" << separator << endl << endl;
+ 
+    do {
+        payment = getValidIntInput(0, INT_MAX, "Input Payment : Rp ");
+        
+        if (payment >= total) {
+            cout << "Change : Rp " << (payment - total) << endl;
+            break;
+        } else {
+            cout << "Not enough money!" << endl;
+        }
+    } while (true);
+
+    // Now mark seats as booked and print tickets
+    for (int i = 0; i < TbookedSeat; i++) {
+        // Mark seat as booked
+        string seat = temp[i].tSeat;
+        char rowChar = toupper(seat[0]);
+        int rowIndex = rowChar - 'A';
+        int colIndex = seat[1] - '1';
+        studio[temp[i].tStudio].session[temp[i].tSesi].seat[rowIndex][colIndex] = true;
+        
+        cout << endl;
+        cout << "\t\t\t" << string(38, ' ') << endl; // Blank top border
+        cout << "\t\t\t| " << setw(34) << left << "ITIX" << " |" << endl;
+        cout << "\t\t\t" << string(38, '=') << endl;
+
+        cout << "\t\t\t| " << setw(34) << left << movie[temp[i].tFilm].title << " |" << endl;
+
+        cout << "\t\t\t| Time    : " 
+            << setw(24) << left 
+            << studio[temp[i].tStudio].session[temp[i].tSesi].time 
+            << " |" << endl;
+
+        cout << "\t\t\t| Studio  : " 
+            << setw(24) << left 
+            << temp[i].tStudio + 1 
+            << " |" << endl;
+
+        // Build seat line as a single string first
+        ostringstream seatInfo;
+        seatInfo << "Seat " << temp[i].tSeat[0] << " - Row " << temp[i].tSeat[1];
+
+        cout << "\t\t\t| Seat    : " 
+            << setw(24) << left << seatInfo.str() 
+            << " |" << endl;
+
+        cout << "\t\t\t| " << setw(34) << left << "Rp 25.000" << " |" << endl;
+        cout << "\t\t\t" << string(38, '=') << endl;
+
+
+        ticketToFile(movie[temp[i].tFilm].title, 
+                     studio[temp[i].tStudio].session[temp[i].tSesi].time, 
+                     temp[i].tSeat);
+    }
+
+    // Copy from temp[] to ticket[] with proper data
+    for (int i = 0; i < TbookedSeat && (bookedSeats + i) < MAX_TICKETS; i++) {
+        ticket[bookedSeats + i].title = movie[temp[i].tFilm].title;
+        ticket[bookedSeats + i].session = studio[temp[i].tStudio].session[temp[i].tSesi].time;
+        ticket[bookedSeats + i].seat = temp[i].tSeat;
+    }
+
+    bookedSeats += TbookedSeat;
+    TbookedSeat = 0;
+    
+    // Clear temp array
+    for(int i = 0; i < MAX_TEMP_BOOKINGS; i++) {
+        temp[i] = Temporary();
+    }
+}
+
+bool ChooseSeats() {
+    int selectedFilm = temp[0].tFilm;
+    int selectedStudio = temp[0].tStudio;
+    int selectedSession = temp[0].tSesi;
+
+    cout << "Booking Ticket" << endl;
     displaySeats();
 
-    cout << "\t" << movie[temp[0].tFilm].title << " | " <<  studio[temp[0].tStudio].session[temp[0].tSesi].time << endl << endl;
+    cout << "\t" << movie[selectedFilm].title 
+         << " | " << studio[selectedStudio].session[selectedSession].time << endl << endl;
 
-    cout << "Pesan berapa ticket : "; cin >> qty;
+    int maxSeats = ROWS * COLS;
+    int qty = getValidIntInput(1, maxSeats, "Pesan berapa tiket : ");
+
+    if (qty <= 0) return false;
+
+    // Validate all seats first before booking any
+    string* seatInputs = new string[qty];
+    bool allValid = true;
     
-    if(qty == 0) return false;
-    
-    for(int i=TbookedSeat; i < TbookedSeat+qty; i++){
-        int rowIndex = seat[0] - 'A';
-        int seatIndex = seat[1] - '1';
-
-        temp[i].tFilm = temp[0].tFilm;
-        temp[i].tSesi = temp[0].tSesi;
-        temp[i].tStudio = temp[0].tStudio;
-
-        cout<<"Masukkan Seat (A1-J9) : ";cin>>seat;
-        if(seatChecking(seat,temp[0].tFilm,temp[0].tSesi) == -1){
-            i--;
-        } else {
-            temp[i].tSeat = seat;
+    for (int i = 0; i < qty; i++) {
+        cout << "Masukkan Seat " << (i+1) << " (A1-J9) : ";
+        cin >> seatInputs[i];
+        
+        // Convert to uppercase
+        if(seatInputs[i].length() >= 1) {
+            seatInputs[i][0] = toupper(seatInputs[i][0]);
         }
+        
+        if (seatChecking(seatInputs[i], selectedStudio, selectedSession) == -1) {
+            cout << "Invalid seat: " << seatInputs[i] << endl;
+            allValid = false;
+            break;
+        }
+        
+        // Check for duplicate seats in current booking
+        for(int j = 0; j < i; j++) {
+            if(seatInputs[i] == seatInputs[j]) {
+                cout << "Duplicate seat selected: " << seatInputs[i] << endl;
+                allValid = false;
+                break;
+            }
+        }
+        if(!allValid) break;
     }
-    TbookedSeat += qty;
+    
+    if(!allValid) {
+        delete[] seatInputs;
+        return false;
+    }
+    
+    // All seats are valid, save booking info
+    TbookedSeat = qty;
+    for (int i = 0; i < qty; i++) {
+        temp[i].tFilm = selectedFilm;
+        temp[i].tStudio = selectedStudio;
+        temp[i].tSesi = selectedSession;
+        temp[i].tSeat = seatInputs[i];
+    }
+    
+    delete[] seatInputs;
+    
     PrintTicket();
     cout << endl;
     system("pause");
     return true;
 }
 
+void CreateMovie() {
+    int inputmovieC = getValidIntInput(1, MAX_MOVIES - CountMovie, 
+        "How many movies you want to input = ");
 
-void CreateMovie(){
-    int inputmovieC;
-
-    cout << "How many movies you want to input = "; 
-    while (!(cin >> inputmovieC) || inputmovieC <= 0) { // Validasi input
-        cout << "Invalid input! Please enter a valid number: ";
-        cin.clear();
-        cin.ignore();
-    }
-
-    if (CountMovie + inputmovieC > 5) { // Cek batas array
-        cout << "Error: Movie storage is full! You can only add " << 5 - CountMovie << " more movies.\n";
+    if (CountMovie + inputmovieC > MAX_MOVIES) {
+        cout << "Error: Movie storage is full! You can only add " 
+             << MAX_MOVIES - CountMovie << " more movies." << endl;
         return;
     }
 
-    cin.ignore();
+    clearInputBuffer();
 
-    for(int i = CountMovie;  i < inputmovieC + CountMovie ; i++){
-        cout << "\n== Movie " << i + 1 << " ==\n";
+    for(int i = CountMovie; i < inputmovieC + CountMovie; i++) {
+        cout << "\n== Movie " << i + 1 << " ==" << endl;
  
         cout << "Title\t\t: "; 
         getline(cin, movie[i].title);
@@ -344,28 +531,19 @@ void CreateMovie(){
         getline(cin, movie[i].duration);
     }
 
-    CountMovie += inputmovieC; // Update jumlah film yang tersimpan
-    cout << "\n" << inputmovieC << " movies successfully added!\n";
+    CountMovie += inputmovieC;
+    cout << "\n" << inputmovieC << " movies successfully added!" << endl;
 }
 
-void UpdateMovie(){
-    int choiceMovie;
-
+void UpdateMovie() {
     ShowsMovie();
-
-    cout << "pilih film "; 
-
-    while (!(cin >> choiceMovie) || choiceMovie < 1 || choiceMovie > CountMovie) { 
-        cout << "Invalid input! Please enter a valid number" << "(1-" << CountMovie << ")" ;
-        cin.clear();
-        cin.ignore();
-    }
-
     
-    cout << "\n== Movie " << choiceMovie << " ==\n";
-    
+    int choiceMovie = getValidIntInput(1, CountMovie, "Pilih film : ");
     choiceMovie -= 1;
-    cin.ignore();
+    
+    cout << "\n== Movie " << choiceMovie + 1 << " ==" << endl;
+    
+    clearInputBuffer();
     cout << "Title\t\t: "; 
     getline(cin, movie[choiceMovie].title);
     cout << "Genre\t\t: ";
@@ -376,212 +554,361 @@ void UpdateMovie(){
     getline(cin, movie[choiceMovie].release_d);
     cout << "Duration\t: ";
     getline(cin, movie[choiceMovie].duration);
-
+    
+    cout << "Movie updated successfully!" << endl;
 }
 
 void UpdateSession() {
+    int choiceSt = getValidIntInput(1, STUDIOS, "Which Studio (1-3): ");
+    int choiceSS = getValidIntInput(1, SESSIONS_PER_STUDIO, "Which Session (1-5): ");
 
-    int choiceSt, choiceSS;
-    cout << "Which Studio (1-3): ";
-    while (!(cin >> choiceSt) || choiceSt < 1 || choiceSt > 3) { 
-        cout << "Invalid input! Please enter a valid number (1-3): ";
-        cin.clear();
-        cin.ignore(10000, '\n');
-    }
-
-    cout << "Which Session (1-5): ";
-    while (!(cin >> choiceSS) || choiceSS < 1 || choiceSS > 5) { 
-        cout << "Invalid input! Please enter a valid number (1-5): ";
-        cin.clear();
-        cin.ignore(10000, '\n');
-    }
-
-    choiceSt--; // Ubah ke index array (0-2)
-    choiceSS--; // Ubah ke index array (0-4)
+    choiceSt--; 
+    choiceSS--; 
 
     int currentMovie = studio[choiceSt].session[choiceSS].movie;
     cout << "\nCurrent movie in session: " << movie[currentMovie].title << endl;
 
-    cout << "\nChoose new movie (must be different):\n";
+    cout << "\nChoose new movie:" << endl;
     for (int i = 0; i < CountMovie; i++) {
-        if (i != currentMovie) {
-            cout << i + 1 << ". " << movie[i].title << endl;
-        }
+        cout << i + 1 << ". " << movie[i].title << endl;
     }
 
-    int newMovie;
-    while (true) {
-        cout << "Enter new movie number: ";
-        cin >> newMovie;
-        if (newMovie < 1 || newMovie > CountMovie || newMovie - 1 == currentMovie) {
-            cout << "Invalid choice! Pick a different movie.\n";
-        } else {
-            break;
-        }
-    }
+    int newMovie = getValidIntInput(1, CountMovie, "Enter new movie number: ");
 
-    // Update sesi dengan film baru
     studio[choiceSt].session[choiceSS].movie = newMovie - 1;
     cout << "Session updated! New movie: " << movie[newMovie - 1].title << endl;
 }
 
-void UpdateTime(){
-    int choiceSt, choiceSS;
-    cout << "Which Studio (1-3): ";
-    while (!(cin >> choiceSt) || choiceSt < 1 || choiceSt > 3) { 
-        cout << "Invalid input! Please enter a valid number (1-3): ";
-        cin.clear();
-        cin.ignore(10000, '\n');
-    }
-    choiceSt--; // Ubah ke index array (0-2)
+void UpdateTime() {
+    int choiceSt = getValidIntInput(1, STUDIOS, "Which Studio (1-3): ");
+    choiceSt--;
     
-    for(int i = 0; i < 5; i++){
-        cout << i+1 << ". " << studio[choiceSt].session[i].time << endl;
+    cout << "Current session times:" << endl;
+    for(int i = 0; i < SESSIONS_PER_STUDIO; i++) {
+        cout << i + 1 << ". " << studio[choiceSt].session[i].time << endl;
     }
 
-    cout << "Which Session (1-5): ";
-    while (!(cin >> choiceSS) || choiceSS < 1 || choiceSS > 5) { 
-        cout << "Invalid input! Please enter a valid number (1-5): ";
-        cin.clear();
-        cin.ignore(10000, '\n');
-    }
-
-    choiceSS--; // Ubah ke index array (0-4)
+    int choiceSS = getValidIntInput(1, SESSIONS_PER_STUDIO, "Which Session (1-5): ");
+    choiceSS--;
 
     string newTime;
-    string currentTime = studio[choiceSt].session[choiceSS].time;
-
-    while (true) {
-        cout << "Enter new time number: ";
-        cin >> newTime;
-        if (newTime == currentTime) {
-            cout << "Invalid choice! Pick a different time.\n";
-        } else {
-            break;
-        }
-    }
+    cout << "Enter new time: ";
+    clearInputBuffer();
+    getline(cin, newTime);
+    
     studio[choiceSt].session[choiceSS].time = newTime;
-    cout << "Time updated! New Session: " <<  studio[choiceSt].session[choiceSS].time << endl;
+    cout << "Time updated! New Session: " << studio[choiceSt].session[choiceSS].time << endl;
 }
 
-bool cashierCheck(string user,string pass){
-    for(int i=0;i<4;i++){
-        if(user == cashierUser[i] && pass == cashierPass[i]) return true;
+bool cashierCheck(const string& user, const string& pass) {
+    for(int i = 0; i < cashierCount; i++) {
+        if(user == cashierUser[i] && pass == cashierPass[i]) {
+            return true;
+        }
     }
     return false;
 }   
 
-bool login(bool &admin){
-    string user,pass;
-    admin = false;
-    for(int i=3;i>=0;i--){
-        system("cls");
-        cout<<"== LOGIN =="<<endl;
-        cout<<"Username \t: ";cin>>user;
-        cout<<"Password \t: ";cin>>pass;
+int partition(int low, int high, int mode) {
+    string pivot;
+    switch (mode) {
+        case 0: pivot = ticket[high].title; break;
+        case 1: pivot = ticket[high].session; break;
+        case 2: pivot = ticket[high].seat; break;
+        default: pivot = ticket[high].title; break;
+    }
 
-        if(user == "admin" && pass == "admin123") {
-            admin=true;
+    int i = low - 1;
+    for (int j = low; j < high; j++) {
+        bool condition = false;
+
+        switch (mode) {
+            case 0: condition = ticket[j].title < pivot; break;
+            case 1: condition = ticket[j].session < pivot; break;
+            case 2: condition = ticket[j].seat < pivot; break;
+            default: condition = ticket[j].title < pivot; break;
+        }
+
+        if (condition) {
+            i++;
+            swap(ticket[i], ticket[j]);
+        }
+    }
+
+    swap(ticket[i + 1], ticket[high]);
+    return i + 1;
+}
+
+void quicksortTickets(int low, int high, int mode) {
+    if (low < high) {
+        int pi = partition(low, high, mode);
+        quicksortTickets(low, pi - 1, mode);
+        quicksortTickets(pi + 1, high, mode);
+    }
+}
+
+void sortTicketsBy(int mode) {
+    if (bookedSeats == 0) {
+        cout << "No tickets to sort." << endl;
+        return;
+    }
+
+    quicksortTickets(0, bookedSeats - 1, mode);
+    string field = (mode == 0) ? "title" : (mode == 1) ? "session" : "seat";
+    cout << "Tickets sorted by " << field << "." << endl;
+}
+
+bool login(bool &is_admin) {
+    string user, pass;
+    is_admin = false;
+    
+    for(int attempts = 3; attempts > 0; attempts--) {
+        system("cls");
+        cout << "== LOGIN ==" << endl;
+        cout << "Username \t: "; cin >> user;
+        cout << "Password \t: "; cin >> pass;
+
+        if(user == admin[0] && pass == admin[1]) {
+            is_admin = true;
             return true;
         }
-        else if(cashierCheck(user,pass)) {
+        else if(cashierCheck(user, pass)) {
             system("cls");
-            cout<<"Welcome! ";
-            for(char s : user) {
-                cout<<char(s-32)<<" ";
+            cout << "Welcome! ";
+            for(char c : user) {
+                cout << (char)toupper(c);
             }
-            cout<<"!"<<endl;
+            cout << "!" << endl;
+            system("pause");
             return true;
         }
-        cout<<"Username or Password wrong! Try Remaining : "<<i<<endl;
-        system("pause");
+        
+        if(attempts > 1) {
+            cout << "Username or Password wrong! Tries remaining: " << (attempts - 1) << endl;
+            system("pause");
+        }
     }
     return false;
 }
 
-bool AdminUI(){
-    int pilih;
-    cout << "1. Show Movie\n";
-    cout << "2. Create Movie\n";
-    cout << "3. Update Movie\n";
-    cout << "4. Update Session\n";
-    cout << "5. Update Time\n";
-    cout << "6. Logout\n";
-    cout << "Pilih : "; cin >> pilih;
-    system("cls");
-    switch (pilih){
-        case 1:
-            ShowsMovie();
-        break;
-        case 2:
-            CreateMovie();
-        break;
-        case 3:
-            UpdateMovie();
-        break;
-        case 4:
-            UpdateSession();
-        break;
-        case 5:
-            UpdateTime();
-        break;
-        case 6:
-            return false;
-        break;
+void showData() {
+    if(bookedSeats == 0) {
+        cout << "No tickets found." << endl;
+        return;
+    }
+    
+    for(int i = 0; i < bookedSeats; i++) {
+        cout << "Movie : " << ticket[i].title 
+             << ", Session : " << ticket[i].session 
+             << ", Seat : " << ticket[i].seat << endl;
+    }
+    cout << endl;
+}
+
+void historyList() {
+    while(true) {
+        system("cls");
+        cout << string(30,'=') << endl 
+             << "HISTORY" << endl 
+             << string(30,'=') << endl;
+        showData();
+        cout << "1. Sort by Title" << endl;
+        cout << "2. Sort by Session" << endl;
+        cout << "3. Sort by Seat" << endl;
+        cout << "4. Back" << endl;
         
-        default:
-            break;
+        int hChoose = getValidIntInput(1, 4, "Choose : ");
+
+        switch(hChoose) {
+            case 1: 
+                sortTicketsBy(0);
+                system("pause");
+                break;
+            case 2: 
+                sortTicketsBy(1);
+                system("pause");
+                break;
+            case 3: 
+                sortTicketsBy(2);
+                system("pause");
+                break;
+            case 4: 
+                return;
+        }
+    }
+}
+
+void registerNewCashier(){
+    int qty;
+    string newUser, newPass;
+
+    cout << "Register New Cashier " << endl;
+    
+    if(cashierCount == MAX_CASHIERS){
+        cout<<"Sorry, u can't add more cashier"<<endl;
+        return;
+    }
+    cout<< "How many : "; cin>>qty;
+
+    clearInputBuffer();
+
+    
+    for(int i=cashierCount;i<cashierCount+qty;i++){
+        cout<<string(10,'-')<<endl;
+        cout<<i+1<<".Username : "; getline(cin,cashierUser[i]);
+        cout<<"password : "; getline(cin,cashierPass[i]);
+    }
+
+    cashierCount += qty;
+    
+    char inputCheck;
+    cout<<"That's all? (y/n): ";cin>>inputCheck;
+    if(inputCheck=='n') registerNewCashier();
+    return;
+}
+
+void showCashierList(){
+    cout<<endl;
+    cout<<string(40,'-')<<endl;
+    if(cashierCount==0) {
+        cout<<"-NONE-"<<endl;
+    }
+    for(int i = 0 ; i < cashierCount ; i++ ){
+        cout<<i+1<<". username : "<<cashierUser[i]
+        <<", password : "<<cashierPass[i] << endl;
+    }
+    cout<<string(40,'-')<<endl;
+}
+
+void deleteCashier(){
+    cout<<"Delete Cashier Account"<<endl;
+    int del_in;
+    char inputCheck;
+    
+    if(cashierCount==0){
+        cout<<"Please Input Cashier first!"<<endl;
+        return;
+    }
+
+    showCashierList();
+
+    cout<<"Which Cashier do u want to delete? (num): ";cin>>del_in; del_in-=1;
+    cout<<"delete : "<<cashierUser[del_in]<<" ? (y/n) : "; cin>>inputCheck;
+    if(inputCheck=='y') {
+        for(int i=del_in;i<cashierCount;i++){
+            cashierUser[i]=cashierUser[i+1];
+            cashierPass[i]=cashierPass[i+1];
+        }
+        cashierCount--;
+    }
+}
+
+void cashierList(){
+    int choose;
+
+    cout<<"Registered cashier(s) : " << endl;
+    
+    showCashierList();
+
+    cout<<endl;
+    cout<<"1. Register New Cashier" <<endl;
+    cout<<"2. Delete Registered Cashier"<<endl;
+    cout<<"0. Back"<<endl;
+    cout<<"Choose : "; cin >> choose;
+
+    switch(choose){
+        case 1 : registerNewCashier(); break;
+        case 2 : deleteCashier(); break;
+        case 0 : return ;
+        default : break;
+    }
+
+    showCashierList();
+
+    ofstream cInput(cashier_filename);
+    for(int i=0;i<cashierCount;i++){
+        cInput << cashierUser[i] << " " << cashierPass[i] << endl;
+    }
+    cInput.close();
+}
+
+bool AdminUI() {
+    cout<<"ADMIN MENU : "<<endl;
+    cout << "1. Show Movie" << endl;
+    cout << "2. Create Movie" << endl;
+    cout << "3. Update Movie" << endl;
+    cout << "4. Update Session" << endl;
+    cout << "5. Update Time" << endl;
+    cout << "6. History List" << endl;
+    cout << "7. Register/Delete Cashier" << endl;
+    cout << "8. Logout" << endl;
+    
+    int pilih = getValidIntInput(1, 8, "Pilih : ");
+    system("cls");
+    
+    switch (pilih) {
+        case 1: ShowsMovie(); break;
+        case 2: CreateMovie(); break;
+        case 3: UpdateMovie(); break;
+        case 4: UpdateSession(); break;
+        case 5: UpdateTime(); break;
+        case 6: historyList(); return true; 
+        case 7: cashierList(); break;
+        case 8: return false;
     }
     system("pause");
     return true;
 }
 
-bool CashierUI(){
-    int pilih;
-    cout << "1. Show Movie\n";
-    cout << "2. Pesan Ticket\n";
-    cout << "3. Logout\n";
-    cout << "Pilih : "; cin >> pilih;
+bool CashierUI() {
+    cout<<"CASHIER MENU : " << endl;
+    cout << "1. Show Movie" << endl;
+    cout << "2. Pesan Ticket" << endl;
+    cout << "3. Logout" << endl;
+    
+    int pilih = getValidIntInput(1, 3, "Pilih : ");
     system("cls");
-    switch (pilih){
+    
+    switch (pilih) {
         case 1:
             ShowsMovie();
-        break;
+            break;
         case 2:
-            while(ChooseMovie()){
-                while(ChooseSession()){
-                    while(ChooseSeats()){
+            while(ChooseMovie()) {
+                while(ChooseSession()) {
+                    if(ChooseSeats()) {
                         return true;
                     }
                     system("cls");
                 }
                 system("cls");
             }
-        break;
+            break;
         case 3:
             return false;
-        break;
-        
-        default:
-        break;
     }
     system("pause");
     return true;
 }
 
-int main(){
-    bool admin;
-    loadCashiersFromFile("cashiers.txt");
-    while(login(admin)){
-        if(admin){
-            do{
+int main() {
+    initializeStudios();
+    loadCashiersFromFile();
+    loadHistoryFromFile();
+    
+    bool is_admin;
+    while(login(is_admin)) {
+        if(is_admin) {
+            do {
                 system("cls");
             } while(AdminUI());
         } else {
-            do{
+            do {
                 system("cls");
             } while(CashierUI());
         }
     }
-    cout << "End";
+    
+    cout << "Program ended. Thank you!" << endl;
+    return 0;
 }
