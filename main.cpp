@@ -1,6 +1,7 @@
 #include <iostream>
 #include <iomanip>
 #include <fstream>
+#include <openssl/sha.h>
 #include <sstream>
 #include <string>
 #include <algorithm>
@@ -26,6 +27,7 @@ string cashier_filename = "cashier.txt";
 string admin[2] = {"admin", "admin123"};
 string cashierUser[MAX_CASHIERS];
 string cashierPass[MAX_CASHIERS];
+string hashed_pass[MAX_CASHIERS];
 
 struct Movie {
     string title;
@@ -129,6 +131,14 @@ void initializeStudios() {
     }
 }
 
+std::string sha256(const std::string& str) {
+    unsigned char hash[SHA256_DIGEST_LENGTH];
+    SHA256((const unsigned char*)str.c_str(), str.length(), hash);
+    std::stringstream ss;
+    for (int i = 0; i < SHA256_DIGEST_LENGTH; ++i)
+        ss << std::hex << std::setw(2) << std::setfill('0') << (int)hash[i];
+    return ss.str();
+}
 
 void clearInputBuffer() {
     cin.clear();
@@ -160,14 +170,15 @@ void loadCashiersFromFile() {
     cashierCount = 0;
     
     while (getline(file, line) && cashierCount < MAX_CASHIERS) {
-        istringstream iss(line);
+        stringstream ss(line);
         string user, pass;
         
-        if (iss >> user >> pass) {
-            cashierUser[cashierCount] = user;
-            cashierPass[cashierCount] = pass;
-            cashierCount++;
-        }
+        getline(ss,user,'$');
+        getline(ss,pass);
+        cashierUser[cashierCount] = user;
+        cashierPass[cashierCount] = pass;
+        cashierCount++;
+        
     }
     file.close();
 }
@@ -600,13 +611,15 @@ void UpdateTime() {
     cout << "Time updated! New Session: " << studio[choiceSt].session[choiceSS].time << endl;
 }
 
-bool cashierCheck(const string& user, const string& pass) {
+bool cashierCheck(const string& user,string pass) {
+    bool success=false;
     for(int i = 0; i < cashierCount; i++) {
-        if(user == cashierUser[i] && pass == cashierPass[i]) {
-            return true;
+        if(user == cashierUser[i] && sha256(pass) == cashierPass[i]) {
+            success=true;
+            break;
         }
     }
-    return false;
+    return success;
 }   
 
 int partition(int low, int high, int mode) {
@@ -662,17 +675,18 @@ bool login(bool &is_admin) {
     string user, pass;
     is_admin = false;
     
+    clearInputBuffer();
     for(int attempts = 3; attempts > 0; attempts--) {
         system("cls");
         cout << "== LOGIN ==" << endl;
-        cout << "Username \t: "; cin >> user;
-        cout << "Password \t: "; cin >> pass;
+        cout << "Username \t: "; getline(cin,user);
+        cout << "Password \t: "; getline(cin,pass);
 
         if(user == admin[0] && pass == admin[1]) {
             is_admin = true;
             return true;
         }
-        else if(cashierCheck(user, pass)) {
+        else if(cashierCheck(user,pass)) {
             system("cls");
             cout << "Welcome! ";
             for(char c : user) {
@@ -754,9 +768,12 @@ void registerNewCashier(){
 
     
     for(int i=cashierCount;i<cashierCount+qty;i++){
-        cout<<string(10,'-')<<endl;
-        cout<<i+1<<".Username : "; getline(cin,cashierUser[i]);
-        cout<<"password : "; getline(cin,cashierPass[i]);
+        cout<<string(25,'-')<<endl;
+        string user,pass;
+        cout<<i+1<<".Username : "; getline(cin,user);
+        cout<<"password : "; getline(cin,pass);
+        cashierUser[i]=user;
+        cashierPass[i]=sha256(pass);
     }
 
     cashierCount += qty;
@@ -773,9 +790,9 @@ void showCashierList(){
     if(cashierCount==0) {
         cout<<"-NONE-"<<endl;
     }
+
     for(int i = 0 ; i < cashierCount ; i++ ){
-        cout<<i+1<<". username : "<<cashierUser[i]
-        <<", password : "<<cashierPass[i] << endl;
+        cout<<i+1<<". username : "<<cashierUser[i] << endl;
     }
     cout<<string(40,'-')<<endl;
 }
@@ -827,7 +844,7 @@ void cashierList(){
 
     ofstream cInput(cashier_filename);
     for(int i=0;i<cashierCount;i++){
-        cInput << cashierUser[i] << " " << cashierPass[i] << endl;
+        cInput << cashierUser[i] << "$" << cashierPass[i] << endl;
     }
     cInput.close();
 }
