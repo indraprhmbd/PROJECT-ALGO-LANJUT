@@ -1,4 +1,4 @@
-# 🎬 Final Project Semester 2 (2024–2025)  
+# 🎬 2nd Semester Final Project (2024–2025)  
 **Advanced Programming Algorithms**
 
 ## 👨‍💻 Team Members
