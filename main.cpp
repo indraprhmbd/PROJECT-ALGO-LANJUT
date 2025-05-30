@@ -27,7 +27,6 @@ string cashier_filename = "cashier.txt";
 string admin[2] = {"admin", "admin123"};
 string cashierUser[MAX_CASHIERS];
 string cashierPass[MAX_CASHIERS];
-string hashed_pass[MAX_CASHIERS];
 
 struct Movie {
     string title;
@@ -340,7 +339,7 @@ int seatChecking(const string& seat, int studioIndex, int sessionIndex) {
         return -1;
     }
 
-    return 0; // Valid seat, don't mark it yet
+    return 0;
 }
 
 void ticketToFile(const string& title, const string& session, const string& seat) {
@@ -717,6 +716,7 @@ void showData() {
              << ", Seat : " << ticket[i].seat << endl;
     }
     cout << endl;
+    cout << bookedSeats << " History(s) found"<<endl<<endl;
 }
 
 void historyList() {
@@ -729,9 +729,10 @@ void historyList() {
         cout << "1. Sort by Title" << endl;
         cout << "2. Sort by Session" << endl;
         cout << "3. Sort by Seat" << endl;
-        cout << "4. Back" << endl;
+        cout << "4. Sort by Date Modified" << endl;
+        cout << "0. Back" << endl;
         
-        int hChoose = getValidIntInput(1, 4, "Choose : ");
+        int hChoose = getValidIntInput(0, 4, "Choose : ");
 
         switch(hChoose) {
             case 1: 
@@ -747,7 +748,11 @@ void historyList() {
                 system("pause");
                 break;
             case 4: 
-                return;
+                loadHistoryFromFile();
+                cout << "Tickets sorted by " << "Date Modified" << "." << endl;
+                system("pause");
+                break;
+            case 0 : return;
         }
     }
 }
