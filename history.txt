@@ -1,0 +1,16 @@
+
+Spiderman|10:30|A1
+Batman|10:00|A1
+BonoMan|20:00|A1
+BonoMan|20:00|A2
+Arsyaman|10:30|A2
+Arsyaman|10:30|J1
+Arsyaman|10:30|J2
+Arsyaman|10:30|J3
+Superman|11:00|A1
+Spiderman|10:30|A1
+Spiderman|10:30|A1
+Spiderman|10:30|A2
+Spiderman|10:30|A1
+Spiderman|10:30|A1
+Spiderman|10:30|A1
