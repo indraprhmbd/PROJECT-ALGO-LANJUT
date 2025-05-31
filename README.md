@@ -10,6 +10,13 @@
 3. Run the executable file (double-click or via terminal)  
 4. Done 🎉
 
+## ✅ TIPS 
+1. Login with initial account for admin
+     username : admin
+     password : admin123
+2. Register new account for cashier
+3. Done.
+
 ## 👨‍💻 Team Members
 - [Arsyadi Indra](https://github.com/indraprhmbd)  
 - [Bintang Ramadhan](https://github.com/TangRmdhn)  
