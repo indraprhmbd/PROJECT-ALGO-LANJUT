@@ -6,6 +6,9 @@
 #include <string>
 #include <algorithm>
 #include <limits>
+#include <conio.h>
+#include <random>
+
 using namespace std;
 
 const int MAX_MOVIES = 5;
@@ -25,8 +28,13 @@ string history_filename = "history.txt";
 string cashier_filename = "cashier.txt";
 
 string admin[2] = {"admin", "admin123"};
-string cashierUser[MAX_CASHIERS];
-string cashierPass[MAX_CASHIERS];
+
+struct cashier{
+    string user;
+    string salt; 
+    string pass;
+};
+cashier C[MAX_CASHIERS];
 
 struct Movie {
     string title;
@@ -60,10 +68,50 @@ struct Session {
     }
 };
 
+string maskedInput(bool ShowLastW = false, int visible = 0, char maskChar = '*') {
+    string input; 
+    char ch; // ini char yang di pake cuman buat nyimpen
+
+    while (true) {
+        ch = _getch();
+
+        // Enter = ASCII 13(teken enter loop berakhir)
+        if (ch == 13) {
+            cout << endl;
+            break;
+        }
+
+        // Backspace = ASCII 8/ disini spasi bakal ke tutup juga(kecuali dia blm masukin apa apa)
+        if (ch == 8 && !input.empty()) {
+            input.pop_back();
+            cout << "\b \b";
+        }
+
+        // isprint itu buat karakter yang ditampilin jadi spasi gak bakal ke input
+        else if (isprint(ch)) {
+            input.push_back(ch); // ch itu karakter, jadi push_back bakal masukin karakter ke input
+
+            if (ShowLastW) {
+                // untuk nentuin berapa banyak karak yg gak boleh terlihat
+                if ((int)input.size() <= (int)input.size() - visible)
+                    cout << maskChar;
+                else {
+                    // Tampilkan karakter terakhir
+                    cout << ch;
+                }
+            } else {
+                // jadi disini bakal ketutupan semua sama *
+                cout << maskChar;
+            }
+        }
+    }
+    return input;
+}
+
+
 struct Studio {
     Session session[SESSIONS_PER_STUDIO];
 };
-
 Studio studio[STUDIOS];
 
 struct Ticket {
@@ -170,12 +218,14 @@ void loadCashiersFromFile() {
     
     while (getline(file, line) && cashierCount < MAX_CASHIERS) {
         stringstream ss(line);
-        string user, pass;
+        string user, pass ,sPass;
         
         getline(ss,user,'$');
+        getline(ss,sPass,'$');
         getline(ss,pass);
-        cashierUser[cashierCount] = user;
-        cashierPass[cashierCount] = pass;
+        C[cashierCount].user = user;
+        C[cashierCount].salt = sPass;
+        C[cashierCount].pass = pass;
         cashierCount++;
         
     }
@@ -209,21 +259,34 @@ void loadHistoryFromFile() {
     read.close();
 }
 
-void ShowsMovie() {
-    cout << setw(102) << setfill('-') << "-" << endl;
-    cout << "|TITLE            |PRODUCER            |GENRE             |RELEASE DATE        |DURATION            |" << endl;
-    
-    for(int i = 0; i < CountMovie; i++) {
-        cout << setw(102) << setfill('-') << "-" << endl;
-        cout << setfill(' ');
-        cout << "|" << setw(18) << left << movie[i].title
-             << "|" << setw(20) << left << movie[i].producer
-             << "|" << setw(18) << left << movie[i].genre
-             << "|" << setw(20) << left << movie[i].release_d
-             << "|" << setw(20) << left << movie[i].duration
-             << "|" << endl;
+string generateRandomString(size_t length) {
+    const string chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    random_device rd;
+    mt19937 gen(rd());
+    uniform_int_distribution<> distrib(0, chars.size() - 1);
+
+    string result;
+    for (size_t i = 0; i < length; ++i) {
+        result += chars[distrib(gen)];
     }
-    cout << setw(102) << setfill('-') << "-" << endl;
+    return result;
+}
+
+void ShowsMovie() {
+    cout<<setw(107)<<setfill('-')<<"-"<<endl;
+    cout<<"| NO |TITTLE            |PRODUCER            |Genre             |RELEASE DATE        |DURATION            |\n";
+    for(int i = 0; i < CountMovie; i++){
+        cout<<setw(107)<<setfill('-')<<"-"<<endl;
+        cout<<setfill(' ');
+        cout<<"| "<<setw(3)<<left<<i+1;
+        cout<<"|"<<setw(18)<<left<<movie[i].title
+            <<"|"<<setw(20)<<left<<movie[i].producer
+            <<"|"<<setw(18)<<left<<movie[i].genre
+            <<"|"<<setw(20)<<left<<movie[i].release_d
+            <<"|"<<setw(20)<<left<<movie[i].duration
+            <<"|"<<'\n';
+    }
+    cout<<setw(107)<<setfill('-')<<"-"<<endl;
 }
 
 bool ChooseMovie() {
@@ -297,7 +360,7 @@ bool ChooseSession() {
 }
 
 void displaySeats() {
-    cout << "   ";
+    cout << "    ";
     for(int j = 1; j <= COLS; j++) {
         cout << setw(4) << j;
     }
@@ -611,14 +674,14 @@ void UpdateTime() {
 }
 
 bool cashierCheck(const string& user,string pass) {
-    bool success=false;
+
     for(int i = 0; i < cashierCount; i++) {
-        if(user == cashierUser[i] && sha256(pass) == cashierPass[i]) {
-            success=true;
-            break;
+        if(user==C[i].user){
+            string inputHash = sha256(C[i].salt + pass);
+            return inputHash == C[i].pass;
         }
     }
-    return success;
+    return false;
 }   
 
 int partition(int low, int high, int mode) {
@@ -679,7 +742,7 @@ bool login(bool &is_admin) {
         system("cls");
         cout << "== LOGIN ==" << endl;
         cout << "Username \t: "; getline(cin,user);
-        cout << "Password \t: "; getline(cin,pass);
+        cout << "Password \t: "; pass = maskedInput();
 
         if(user == admin[0] && pass == admin[1]) {
             is_admin = true;
@@ -775,10 +838,12 @@ void registerNewCashier(){
     for(int i=cashierCount;i<cashierCount+qty;i++){
         cout<<string(25,'-')<<endl;
         string user,pass;
+        string salt = generateRandomString(10);
         cout<<i+1<<".Username : "; getline(cin,user);
-        cout<<"password : "; getline(cin,pass);
-        cashierUser[i]=user;
-        cashierPass[i]=sha256(pass);
+        cout<<"password : "; pass = maskedInput();
+        C[i].user=user;
+        C[i].salt = salt;
+        C[i].pass=sha256(salt + pass);
     }
 
     cashierCount += qty;
@@ -797,9 +862,11 @@ void showCashierList(){
     }
 
     for(int i = 0 ; i < cashierCount ; i++ ){
-        cout<<i+1<<". username : "<<cashierUser[i] << endl;
+        cout<<i+1<<". username : "<<C[i].user << endl;
     }
     cout<<string(40,'-')<<endl;
+
+    cout<<cashierCount<<" cashier(s) found."<<endl;
 }
 
 void deleteCashier(){
@@ -812,46 +879,47 @@ void deleteCashier(){
         return;
     }
 
-    showCashierList();
-
-    cout<<"Which Cashier do u want to delete? (num): ";cin>>del_in; del_in-=1;
-    cout<<"delete : "<<cashierUser[del_in]<<" ? (y/n) : "; cin>>inputCheck;
+    cout<<endl<<"Which Cashier do u want to delete? (num): ";cin>>del_in; del_in-=1;
+    cout<<"delete : "<<C[del_in].user<<" ? (y/n) : "; cin>>inputCheck;
     if(inputCheck=='y') {
         for(int i=del_in;i<cashierCount;i++){
-            cashierUser[i]=cashierUser[i+1];
-            cashierPass[i]=cashierPass[i+1];
+            C[i]=C[i+1];
         }
         cashierCount--;
     }
 }
 
 void cashierList(){
-    int choose;
+    while(true){
+        system("cls");
+        int choose;
+        cout<<"Registered cashier(s) : " << endl;
+        
+        showCashierList();
 
-    cout<<"Registered cashier(s) : " << endl;
+        cout<<endl;
+        cout<<"1. Register New Cashier" <<endl;
+        cout<<"2. Delete Registered Cashier"<<endl;
+        cout<<"0. Back"<<endl;
+        cout<<"Choose : "; cin >> choose;
+
+        switch(choose){
+            case 1 : registerNewCashier(); break;
+            case 2 : deleteCashier(); break;
+            case 0 : return ;
+            default : break;
+        }
+
+        showCashierList();
+
+        ofstream cInput(cashier_filename);
+        for(int i=0;i<cashierCount;i++){
+            cInput << C[i].user << "$" << C[i].salt << "$" << C[i].pass << endl;
+        }
+        cInput.close();
+    }
+
     
-    showCashierList();
-
-    cout<<endl;
-    cout<<"1. Register New Cashier" <<endl;
-    cout<<"2. Delete Registered Cashier"<<endl;
-    cout<<"0. Back"<<endl;
-    cout<<"Choose : "; cin >> choose;
-
-    switch(choose){
-        case 1 : registerNewCashier(); break;
-        case 2 : deleteCashier(); break;
-        case 0 : return ;
-        default : break;
-    }
-
-    showCashierList();
-
-    ofstream cInput(cashier_filename);
-    for(int i=0;i<cashierCount;i++){
-        cInput << cashierUser[i] << "$" << cashierPass[i] << endl;
-    }
-    cInput.close();
 }
 
 bool AdminUI() {
@@ -860,7 +928,7 @@ bool AdminUI() {
     cout << "2. Create Movie" << endl;
     cout << "3. Update Movie" << endl;
     cout << "4. Update Session" << endl;
-    cout << "5. Update Time" << endl;
+    cout << "5. Update Time"    << endl;
     cout << "6. History List" << endl;
     cout << "7. Register/Delete Cashier" << endl;
     cout << "8. Logout" << endl;
