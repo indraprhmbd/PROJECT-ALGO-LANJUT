@@ -12,10 +12,10 @@
 
 ## ✅ TIPS 
 1. Login with initial account for admin
-     username : admin
-     password : admin123
-2. Register new account for cashier
-3. Done.
+- username : admin
+- password : admin123
+3. Register new account for cashier
+4. Done.
 
 ## 👨‍💻 Team Members
 - [Arsyadi Indra](https://github.com/indraprhmbd)  
